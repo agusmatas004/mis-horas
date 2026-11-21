@@ -2,7 +2,7 @@
   "name": "Mis Horas",
   "short_name": "Mis Horas",
   "description": "Registrá tu tiempo de predicación",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fff1c9",

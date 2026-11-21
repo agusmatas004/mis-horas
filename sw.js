@@ -1,5 +1,5 @@
-var CACHE = "mis-horas-v1";
-var FILES = ["/", "/index.html", "/manifest.json", "/icon-192.png", "/icon-512.png"];
+var CACHE = "mis-horas-v2";
+var FILES = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", function(e){
   e.waitUntil(
