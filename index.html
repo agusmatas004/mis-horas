@@ -139,36 +139,15 @@ nav button.on{background:var(--pink);color:#fff;border-color:var(--line);box-sha
 <!-- PANTALLA DE BLOQUEO / ACTIVACIÓN -->
 <div id="lock-screen" class="hide">
   <div id="lock-box">
-    <div style="font-size:46px;margin-bottom:4px">🔐</div>
-    <h2>Activar Mis Horas</h2>
-    <p>Para usar la app en este celular, enviá tu código de solicitud a Agustín para habilitar tu acceso.</p>
-    
-    <div style="background:#fff;border:3px solid var(--line);border-radius:18px;padding:12px;margin:10px 0 14px;box-shadow:3px 3px 0 var(--line)">
-      <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.7;margin-bottom:2px">Tu código de solicitud</div>
-      <div id="sol-code-display" style="font:400 32px var(--df);color:var(--out);letter-spacing:2px">H-0000</div>
-    </div>
-
-    <input id="sol-name" placeholder="Tu nombre y apellido" autocomplete="name">
-
+    <div style="font-size:46px;margin-bottom:6px">🔐</div>
+    <h2>Activar App</h2>
+    <p>Ingresá tu código de licencia personal para desbloquear <b>Mis Horas</b> en este celular.</p>
+    <input id="lic-code" placeholder="CÓDIGO (ej: HORAS-01)" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;font-weight:700;letter-spacing:1px">
+    <input id="lic-name" placeholder="Tu nombre y apellido" autocomplete="name">
     <div id="lic-msg"></div>
-
-    <button class="btn" id="btn-sol-wa" style="background:#25D366;color:#fff;margin-bottom:10px">
-      📲 Enviar solicitud por WhatsApp
-    </button>
-
-    <button class="btn" id="btn-sol-check" style="background:var(--blu);font-size:16px;padding:12px">
-      🔄 Ya pagué, comprobar activación
-    </button>
-
-    <div style="margin-top:16px">
-      <button id="toggle-manual-code" style="background:none;border:none;font:700 12px var(--bf);color:var(--out);opacity:.6;cursor:pointer;text-decoration:underline">
-        ¿Tenés un código manual? Ingresalo acá
-      </button>
-    </div>
-
-    <div id="manual-code-section" class="hide" style="margin-top:14px;padding-top:14px;border-top:2px dashed var(--line)">
-      <input id="lic-code" placeholder="CÓDIGO MANUAL" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;font-weight:700">
-      <button class="btn" id="lic-submit" style="font-size:15px;padding:12px">Desbloquear con código</button>
+    <button class="btn" id="lic-submit">Activar Aplicación</button>
+    <div>
+      <a class="wa-link" id="lic-wa" href="https://wa.me/5493816896591?text=Hola%20Agust%C3%ADn!%20Quiero%20comprar%20una%20licencia%20para%20la%20app%20Mis%20Horas" target="_blank">📲 ¿No tenés código? Compralo por WhatsApp</a>
     </div>
   </div>
 </div>
@@ -337,14 +316,6 @@ if(!deviceId){
   localStorage.setItem("horas_device_id", deviceId);
 }
 
-// Código de solicitud único para este dispositivo
-var solCode = localStorage.getItem("horas_sol_code");
-if(!solCode){
-  solCode = "H-" + Math.floor(1000 + Math.random() * 9000);
-  localStorage.setItem("horas_sol_code", solCode);
-}
-if(g("sol-code-display")){ g("sol-code-display").textContent = solCode; }
-
 // Estado de la licencia
 var lic = null;
 try { lic = JSON.parse(localStorage.getItem("horas_licencia") || "null"); } catch(e){}
@@ -362,33 +333,16 @@ function updateLicenseUI(){
     if(cdEl) cdEl.textContent = lic.codigo;
     if(dvEl) dvEl.textContent = deviceId;
   } else {
-    if(stEl){ stEl.textContent = "Pendiente (" + solCode + ")"; stEl.style.color = "var(--org)"; }
-    if(cdEl) cdEl.textContent = solCode;
+    if(stEl){ stEl.textContent = "No activada"; stEl.style.color = "var(--org)"; }
+    if(cdEl) cdEl.textContent = "-";
     if(dvEl) dvEl.textContent = deviceId;
   }
-}
-
-function registerPendingRequest(name){
-  if(!db) return;
-  var docRef = db.collection("licencias").doc(solCode);
-  docRef.get().then(function(doc){
-    if(!doc.exists){
-      docRef.set({
-        activa: false,
-        dispositivo: deviceId,
-        nombre: name || "Nuevo usuario",
-        codigo: solCode,
-        fecha_solicitud: new Date().toISOString()
-      }).catch(function(e){ console.warn("Error creando solicitud:", e); });
-    }
-  }).catch(function(e){ console.warn("Error leyendo solicitud:", e); });
 }
 
 function checkAccess(){
   if(!isLicenseActive()){
     g("lock-screen").classList.remove("hide");
     g("wover").classList.add("hide");
-    registerPendingRequest(g("sol-name").value.trim());
   } else {
     g("lock-screen").classList.add("hide");
     if(!st.name){
@@ -400,158 +354,113 @@ function checkAccess(){
   updateLicenseUI();
 }
 
-// ── ENVIAR POR WHATSAPP ──────────────────────────────────────
-g("btn-sol-wa").addEventListener("click", function(){
-  var name = g("sol-name").value.trim();
-  registerPendingRequest(name);
-  var text = "¡Hola Agustín! Quiero activar mi aplicación Mis Horas.%0A" +
-             (name ? ("Mi nombre es: *" + encodeURIComponent(name) + "*%0A") : "") +
-             "Mi código de solicitud es: *" + solCode + "*";
-  var url = "https://wa.me/5493816896591?text=" + text;
-  window.open(url, "_blank");
-});
-
-// ── COMPROBAR ACTIVACIÓN ─────────────────────────────────────
-g("btn-sol-check").addEventListener("click", function(){
-  var msg = g("lic-msg");
-  var btn = g("btn-sol-check");
-  msg.className = "";
-  msg.textContent = "Comprobando estado en el servidor...";
-  btn.disabled = true;
-
-  if(!db){
-    msg.className = "err";
-    msg.textContent = "❌ Sin conexión a internet. Revisá tu red.";
-    btn.disabled = false;
-    return;
-  }
-
-  var docRef = db.collection("licencias").doc(solCode);
-  docRef.get().then(function(doc){
-    btn.disabled = false;
-    if(!doc.exists){
-      registerPendingRequest(g("sol-name").value.trim());
-      msg.className = "err";
-      msg.textContent = "⏳ Tu código fue registrado como pendiente. Enviáselo a Agustín por WhatsApp.";
-      return;
-    }
-    var data = doc.data();
-    if(data.activa === true){
-      lic = {
-        valida: true,
-        codigo: solCode,
-        nombre: data.nombre || g("sol-name").value.trim() || st.name,
-        fecha: new Date().toISOString()
-      };
-      localStorage.setItem("horas_licencia", JSON.stringify(lic));
-      if(data.nombre && !st.name) st.name = data.nombre;
-      save();
-
-      msg.className = "ok";
-      msg.textContent = "🎉 ¡Activación confirmada! Abriendo app...";
-      setTimeout(function(){
-        checkAccess();
-        renderGreeting();
-        g("c-name").value = st.name;
-      }, 900);
-    } else {
-      msg.className = "err";
-      msg.textContent = "⏳ Tu código todavía figura pendiente. Avisale a Agustín por WhatsApp para que lo habilite.";
-    }
-  }).catch(function(err){
-    btn.disabled = false;
-    msg.className = "err";
-    msg.textContent = "❌ Error de conexión: " + (err.message || "revisá tu internet");
-  });
-});
-
-// Toggle para código manual
-g("toggle-manual-code").addEventListener("click", function(){
-  var sec = g("manual-code-section");
-  sec.classList.toggle("hide");
-});
-
-// Activación con código manual (por si Agustín les da un código ya existente)
+// ── ACTIVACIÓN CON CÓDIGO (ÚNICO USO) ────────────────────────
 g("lic-submit").addEventListener("click", function(){
   var codeIn = g("lic-code");
+  var nameIn = g("lic-name");
   var msg = g("lic-msg");
   var btn = g("lic-submit");
+  
   var code = codeIn.value.trim().toUpperCase();
-  var name = g("sol-name").value.trim() || "Usuario";
-
+  var name = nameIn.value.trim();
+  
   if(!code){
     msg.className = "err";
-    msg.textContent = "⚠️ Ingresá el código manual";
+    msg.textContent = "⚠️ Ingresá tu código de licencia";
     codeIn.classList.add("shake");
     setTimeout(function(){ codeIn.classList.remove("shake"); }, 500);
     codeIn.focus();
     return;
   }
-
-  if(!db){
+  if(!name){
     msg.className = "err";
-    msg.textContent = "❌ Sin conexión a internet.";
+    msg.textContent = "⚠️ Ingresá tu nombre";
+    nameIn.classList.add("shake");
+    setTimeout(function(){ nameIn.classList.remove("shake"); }, 500);
+    nameIn.focus();
     return;
   }
-
+  
+  if(!db){
+    msg.className = "err";
+    msg.textContent = "❌ No se pudo conectar a internet. Revisá tu conexión.";
+    return;
+  }
+  
   btn.disabled = true;
   btn.textContent = "Verificando...";
   msg.className = "";
-  msg.textContent = "Verificando código...";
-
+  msg.textContent = "Comprobando código en el servidor...";
+  
   var docRef = db.collection("licencias").doc(code);
   docRef.get().then(function(doc){
     if(!doc.exists){
       btn.disabled = false;
-      btn.textContent = "Desbloquear con código";
+      btn.textContent = "Activar Aplicación";
       msg.className = "err";
-      msg.textContent = "❌ El código manual no existe.";
+      msg.textContent = "❌ El código ingresado no existe.";
       return;
     }
+    
     var data = doc.data();
     if(data.activa === false){
       btn.disabled = false;
-      btn.textContent = "Desbloquear con código";
+      btn.textContent = "Activar Aplicación";
       msg.className = "err";
-      msg.textContent = "❌ Este código está desactivado.";
+      msg.textContent = "❌ Esta licencia fue desactivada.";
       return;
     }
+    
+    // Si ya fue usada por otro dispositivo diferente (Anti-copia)
     if(data.dispositivo && data.dispositivo !== deviceId){
       btn.disabled = false;
-      btn.textContent = "Desbloquear con código";
+      btn.textContent = "Activar Aplicación";
       msg.className = "err";
-      msg.textContent = "❌ Este código ya fue activado en otro celular.";
+      msg.textContent = "❌ Este código ya fue usado en otro celular.";
       return;
     }
-
+    
+    // Si es nuevo o del mismo celular, lo activamos y vinculamos
     docRef.update({
       dispositivo: deviceId,
       nombre: name,
       fecha_activacion: new Date().toISOString()
     }).then(function(){
-      lic = { valida: true, codigo: code, nombre: name, fecha: new Date().toISOString() };
+      lic = {
+        valida: true,
+        codigo: code,
+        nombre: name,
+        fecha: new Date().toISOString()
+      };
       localStorage.setItem("horas_licencia", JSON.stringify(lic));
       st.name = name;
       save();
+      
       msg.className = "ok";
-      msg.textContent = "🎉 ¡Código aceptado! Abriendo...";
+      msg.textContent = "🎉 ¡Licencia activada con éxito!";
+      btn.textContent = "✓ ¡Listo!";
+      
       setTimeout(function(){
         checkAccess();
         renderGreeting();
-      }, 900);
-    }).catch(function(e){
+        g("c-name").value = st.name;
+      }, 1000);
+    }).catch(function(err){
       btn.disabled = false;
-      btn.textContent = "Desbloquear con código";
+      btn.textContent = "Activar Aplicación";
       msg.className = "err";
-      msg.textContent = "❌ Error: " + (e.message || "Permiso denegado");
+      msg.textContent = "❌ Error al vincular licencia: " + (err.message || "Permiso denegado");
     });
-  }).catch(function(e){
+  }).catch(function(err){
     btn.disabled = false;
-    btn.textContent = "Desbloquear con código";
+    btn.textContent = "Activar Aplicación";
     msg.className = "err";
-    msg.textContent = "❌ Error de conexión.";
+    msg.textContent = "❌ Error de conexión. Verificá tu internet.";
   });
 });
+
+g("lic-code").addEventListener("keydown", function(e){ if(e.key === "Enter") g("lic-name").focus(); });
+g("lic-name").addEventListener("keydown", function(e){ if(e.key === "Enter") g("lic-submit").click(); });
 
 // ── BIENVENIDA ───────────────────────────────────────────────
 function closeWelcome(nombre){
