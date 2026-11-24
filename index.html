@@ -11,6 +11,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mis Horas">
 <link rel="apple-touch-icon" href="icon-192.png">
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Space+Grotesk:wght@500;700&display=swap">
@@ -103,6 +106,17 @@ nav button.on{background:var(--pink);color:#fff;border-color:var(--line);box-sha
 .cfg-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:2px dashed var(--line);font-size:15px}
 .cfg-row:last-child{border-bottom:none}
 
+/* PANTALLA DE BLOQUEO / LICENCIA */
+#lock-screen{position:fixed;inset:0;z-index:10000;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
+#lock-box{width:100%;max-width:390px;background:var(--yel);border:3px solid var(--line);border-radius:28px;padding:32px 24px 28px;box-shadow:8px 8px 0 var(--line);text-align:center}
+#lock-box h2{font:400 32px/1.1 var(--df);margin:0 0 10px;color:var(--out);text-shadow:2px 2px 0 var(--pink)}
+#lock-box p{font-size:14px;margin:0 0 16px;color:var(--out);font-family:var(--bf);line-height:1.4}
+#lock-box input{text-align:center;font-size:16px;margin:6px 0 10px}
+#lic-msg{font-size:13px;min-height:22px;margin:4px 0 10px;font-weight:700}
+#lic-msg.err{color:#c0001a}
+#lic-msg.ok{color:#007a33}
+.wa-link{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:13px;color:var(--out);text-decoration:none;border-bottom:2px dashed var(--line);padding-bottom:2px;font-weight:700}
+
 /* BIENVENIDA */
 #wover{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:28px}
 #wbox{width:100%;max-width:360px;background:#fff1c9;border:3px solid #1b0a33;border-radius:28px;padding:32px 24px 28px;box-shadow:8px 8px 0 #1b0a33;text-align:center}
@@ -122,8 +136,24 @@ nav button.on{background:var(--pink);color:#fff;border-color:var(--line);box-sha
 </head>
 <body>
 
+<!-- PANTALLA DE BLOQUEO / ACTIVACIÓN -->
+<div id="lock-screen">
+  <div id="lock-box">
+    <div style="font-size:46px;margin-bottom:6px">🔐</div>
+    <h2>Activar App</h2>
+    <p>Ingresá tu código de licencia personal para desbloquear <b>Mis Horas</b> en este celular.</p>
+    <input id="lic-code" placeholder="CÓDIGO (ej: HORAS-01)" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;font-weight:700;letter-spacing:1px">
+    <input id="lic-name" placeholder="Tu nombre y apellido" autocomplete="name">
+    <div id="lic-msg"></div>
+    <button class="btn" id="lic-submit">Activar Aplicación</button>
+    <div>
+      <a class="wa-link" id="lic-wa" href="https://wa.me/?text=Hola!%20Quiero%20comprar%20una%20licencia%20para%20la%20app%20Mis%20Horas" target="_blank">📲 ¿No tenés código? Pedilo por WhatsApp</a>
+    </div>
+  </div>
+</div>
+
 <!-- BIENVENIDA -->
-<div id="wover">
+<div id="wover" class="hide">
   <div id="wbox">
     <h2>¡Hola! 👋</h2>
     <p>¿Cómo te llamás?<br>Así hacemos todo más personal.</p>
@@ -196,6 +226,23 @@ nav button.on{background:var(--pink);color:#fff;border-color:var(--line);box-sha
         </button>
       </div>
     </div>
+    <!-- Licencia -->
+    <div class="clay">
+      <div class="lbl">Licencia</div>
+      <div class="cfg-row">
+        <span>Estado:</span>
+        <b id="cfg-lic-status" style="color:var(--mint)">Activa ✓</b>
+      </div>
+      <div class="cfg-row">
+        <span>Código:</span>
+        <span id="cfg-lic-code">-</span>
+      </div>
+      <div class="cfg-row">
+        <span>Dispositivo:</span>
+        <span id="cfg-lic-dev" style="font-size:11px;opacity:.7">-</span>
+      </div>
+    </div>
+
     <div class="clay">
       <div class="lbl">Más opciones</div>
       <div class="cfg-row">
@@ -241,6 +288,180 @@ function monthSecs(k,live){
 }
 var tab="t";
 
+// ── FIREBASE & LICENCIA ──────────────────────────────────────
+var firebaseConfig = {
+  apiKey: "AIzaSyDzuwrxUUTEwvBrexKbg36WeFYomEh71sM",
+  authDomain: "mis-horas-af1a5.firebaseapp.com",
+  projectId: "mis-horas-af1a5",
+  storageBucket: "mis-horas-af1a5.firebasestorage.app",
+  messagingSenderId: "1012878546461",
+  appId: "1:1012878546461:web:39db705a7aefa592aa98f4",
+  measurementId: "G-11QKQ7LTFJ"
+};
+
+var db = null;
+try {
+  if(window.firebase){
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  }
+} catch(e){
+  console.warn("Firebase no disponible:", e);
+}
+
+// Identificador único para este celular
+var deviceId = localStorage.getItem("horas_device_id");
+if(!deviceId){
+  deviceId = "dev_" + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+  localStorage.setItem("horas_device_id", deviceId);
+}
+
+// Estado de la licencia
+var lic = null;
+try { lic = JSON.parse(localStorage.getItem("horas_licencia") || "null"); } catch(e){}
+
+function isLicenseActive(){
+  return lic && lic.valida === true && !!lic.codigo;
+}
+
+function updateLicenseUI(){
+  var stEl = g("cfg-lic-status");
+  var cdEl = g("cfg-lic-code");
+  var dvEl = g("cfg-lic-dev");
+  if(isLicenseActive()){
+    if(stEl){ stEl.textContent = "Activa ✓"; stEl.style.color = "var(--mint)"; }
+    if(cdEl) cdEl.textContent = lic.codigo;
+    if(dvEl) dvEl.textContent = deviceId;
+  } else {
+    if(stEl){ stEl.textContent = "No activada"; stEl.style.color = "var(--org)"; }
+    if(cdEl) cdEl.textContent = "-";
+    if(dvEl) dvEl.textContent = deviceId;
+  }
+}
+
+function checkAccess(){
+  if(!isLicenseActive()){
+    g("lock-screen").classList.remove("hide");
+    g("wover").classList.add("hide");
+  } else {
+    g("lock-screen").classList.add("hide");
+    if(!st.name){
+      g("wover").classList.remove("hide");
+    } else {
+      g("wover").classList.add("hide");
+    }
+  }
+  updateLicenseUI();
+}
+
+// ── ACTIVACIÓN CON CÓDIGO ────────────────────────────────────
+g("lic-submit").addEventListener("click", function(){
+  var codeIn = g("lic-code");
+  var nameIn = g("lic-name");
+  var msg = g("lic-msg");
+  var btn = g("lic-submit");
+  
+  var code = codeIn.value.trim().toUpperCase();
+  var name = nameIn.value.trim();
+  
+  if(!code){
+    msg.className = "err";
+    msg.textContent = "⚠️ Ingresá tu código de licencia";
+    codeIn.classList.add("shake");
+    setTimeout(function(){ codeIn.classList.remove("shake"); }, 500);
+    codeIn.focus();
+    return;
+  }
+  if(!name){
+    msg.className = "err";
+    msg.textContent = "⚠️ Ingresá tu nombre";
+    nameIn.classList.add("shake");
+    setTimeout(function(){ nameIn.classList.remove("shake"); }, 500);
+    nameIn.focus();
+    return;
+  }
+  
+  if(!db){
+    msg.className = "err";
+    msg.textContent = "❌ No se pudo conectar a internet. Revisá tu conexión.";
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.textContent = "Verificando...";
+  msg.className = "";
+  msg.textContent = "Comprobando código en el servidor...";
+  
+  var docRef = db.collection("licencias").doc(code);
+  docRef.get().then(function(doc){
+    if(!doc.exists){
+      btn.disabled = false;
+      btn.textContent = "Activar Aplicación";
+      msg.className = "err";
+      msg.textContent = "❌ El código ingresado no existe.";
+      return;
+    }
+    
+    var data = doc.data();
+    if(data.activa === false){
+      btn.disabled = false;
+      btn.textContent = "Activar Aplicación";
+      msg.className = "err";
+      msg.textContent = "❌ Esta licencia fue desactivada.";
+      return;
+    }
+    
+    // Si ya fue usada por otro dispositivo diferente
+    if(data.dispositivo && data.dispositivo !== deviceId){
+      btn.disabled = false;
+      btn.textContent = "Activar Aplicación";
+      msg.className = "err";
+      msg.textContent = "❌ Este código ya fue usado en otro celular.";
+      return;
+    }
+    
+    // Si es nueva o del mismo celular, la activamos / vinculamos
+    docRef.update({
+      dispositivo: deviceId,
+      nombre: name,
+      fecha_activacion: new Date().toISOString()
+    }).then(function(){
+      lic = {
+        valida: true,
+        codigo: code,
+        nombre: name,
+        fecha: new Date().toISOString()
+      };
+      localStorage.setItem("horas_licencia", JSON.stringify(lic));
+      st.name = name;
+      save();
+      
+      msg.className = "ok";
+      msg.textContent = "🎉 ¡Licencia activada con éxito!";
+      btn.textContent = "✓ ¡Listo!";
+      
+      setTimeout(function(){
+        checkAccess();
+        renderGreeting();
+        g("c-name").value = st.name;
+      }, 1000);
+    }).catch(function(err){
+      btn.disabled = false;
+      btn.textContent = "Activar Aplicación";
+      msg.className = "err";
+      msg.textContent = "❌ Error al vincular licencia: " + (err.message || "Permiso denegado");
+    });
+  }).catch(function(err){
+    btn.disabled = false;
+    btn.textContent = "Activar Aplicación";
+    msg.className = "err";
+    msg.textContent = "❌ Error de conexión. Verificá tu internet.";
+  });
+});
+
+g("lic-code").addEventListener("keydown", function(e){ if(e.key === "Enter") g("lic-name").focus(); });
+g("lic-name").addEventListener("keydown", function(e){ if(e.key === "Enter") g("lic-submit").click(); });
+
 // ── BIENVENIDA ───────────────────────────────────────────────
 function closeWelcome(nombre){
   if(nombre){ st.name=nombre; }
@@ -249,36 +470,6 @@ function closeWelcome(nombre){
   g("c-name").value = st.name;
   renderGreeting();
 }
-
-// Mostrar overlay solo si no hay nombre guardado
-if(!st.name){
-  // ya es visible por defecto (sin clase hide)
-} else {
-  g("wover").classList.add("hide");
-}
-
-g("wok").addEventListener("click", function(){
-  var n = g("wname").value.trim();
-  if(!n){
-    g("werr").textContent = "⚠️ Escribí tu nombre primero";
-    g("wname").classList.add("shake");
-    g("wname").focus();
-    setTimeout(function(){ g("wname").classList.remove("shake"); }, 500);
-    return;
-  }
-  closeWelcome(n);
-});
-
-g("wskip").addEventListener("click", function(){
-  closeWelcome("");
-});
-
-g("wname").addEventListener("keydown", function(e){
-  if(e.key==="Enter"){ g("wok").click(); }
-});
-g("wname").addEventListener("input", function(){
-  g("werr").textContent="";
-});
 
 // ── PALETA ───────────────────────────────────────────────────
 function applyPalette(p){
@@ -495,6 +686,7 @@ document.addEventListener("visibilitychange", refresh);
 
 renderGreeting();
 refresh();
+checkAccess();
 
 // ── SERVICE WORKER (offline) ─────────────────────────────────
 if("serviceWorker" in navigator){

@@ -1,4 +1,4 @@
-var CACHE = "mis-horas-v2";
+var CACHE = "mis-horas-v3";
 var FILES = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", function(e){
@@ -21,7 +21,7 @@ self.addEventListener("fetch", function(e){
   e.respondWith(
     caches.match(e.request).then(function(cached){
       return cached || fetch(e.request).catch(function(){
-        return caches.match("/index.html");
+        return caches.match("index.html");
       });
     })
   );
